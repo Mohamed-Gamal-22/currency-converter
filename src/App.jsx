@@ -1,36 +1,60 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import axios from "axios";
-// https://api.frankfurter.app/latest?amount=AMOUNT&from=FROM_CURRENCY&to=TO_CURRENCY
 
 function App() {
-  const [allCurrency, setallCurrency] = useState([]);
-  const [currentAmount, setcurrentAmount] = useState("");
-  const [cuurentFrom, setcuurentFrom] = useState("AUD");
-  const [currentTo, setcurrentTo] = useState("AUD");
-  const [error, seterror] = useState("");
-  const [result, setresult] = useState(null);
+  const [allCurrency, setAllCurrency] = useState([]);
+  const [currentAmount, setCurrentAmount] = useState("");
+  const [currentFrom, setCurrentFrom] = useState("AUD");
+  const [currentTo, setCurrentTo] = useState("AUD");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [swapTrigger, setswapTrigger] = useState(0);
 
   async function getAllCurrency() {
-    let { data } = await axios.get(`https://api.frankfurter.app/currencies`);
-    let newArr = Object.entries(data).map(
-      (element) => `${element[0] + ": " + element[1]}`
-    );
-    setallCurrency(newArr);
+    const { data } = await axios.get(`https://api.frankfurter.app/currencies`);
+    const newArr = Object.entries(data).map(([code, name]) => ({
+      code,
+      name,
+    }));
+    setAllCurrency(newArr);
   }
 
   async function convertCurrency() {
+    if (
+      currentAmount.trim() === "" ||
+      isNaN(currentAmount) ||
+      +currentAmount <= 0
+    ) {
+      setError("Please enter a valid number!");
+      return;
+    }
+
     try {
-      let { data } = await axios.get(
-        `https://api.frankfurter.app/latest?amount=${currentAmount}&from=${cuurentFrom}&to=${currentTo}`
+      const { data } = await axios.get(
+        `https://api.frankfurter.app/latest?amount=${currentAmount}&from=${currentFrom}&to=${currentTo}`
       );
+      setResult(data);
       console.log(data);
-      setresult(data);
-      seterror("");
+
+      setError("");
     } catch (err) {
-      seterror(err.response.data.message);
+      setError(err.response?.data?.message || "Something went wrong");
     }
   }
+
+  function swap() {
+    const temp = currentFrom;
+    setCurrentFrom(currentTo);
+    setCurrentTo(temp);
+    setswapTrigger((value) => value + 1); // to change state to check and call converter function again
+  }
+
+  // to get all data when swap value when click swap
+  useEffect(() => {
+    if (swapTrigger == 0) return;
+    convertCurrency();
+  }, [swapTrigger]);
 
   useEffect(() => {
     getAllCurrency();
@@ -43,11 +67,13 @@ function App() {
           <h1 className="text-4xl text-center font-bold text-white my-8">
             Currency Converter
           </h1>
+
           {error && (
             <h2 className="bg-red-500 text-center text-white p-3 rounded my-3">
               {error} !
             </h2>
           )}
+
           <div>
             <label
               htmlFor="amount"
@@ -57,12 +83,9 @@ function App() {
             </label>
             <input
               value={currentAmount}
-              onChange={(e) => {
-                setcurrentAmount(e.target.value);
-              }}
+              onChange={(e) => setCurrentAmount(e.target.value)}
               type="text"
               id="amount"
-              aria-describedby="helper-text-explanation"
               className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 mb-3"
             />
           </div>
@@ -72,22 +95,19 @@ function App() {
               htmlFor="from"
               className="block mb-2 text-white mt-3 font-bold text-xl"
             >
-              Choose Curruncy :
+              From Currency:
             </label>
             <select
-              onChange={(e) => {
-                setcuurentFrom(e.target.value.slice(0, 3));
-              }}
+              value={currentFrom}
+              onChange={(e) => setCurrentFrom(e.target.value)}
               id="from"
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 "
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
             >
-              {allCurrency.map((curr) => {
-                return (
-                  <option value={curr} key={curr} className={curr}>
-                    {curr}
-                  </option>
-                );
-              })}
+              {allCurrency.map((curr) => (
+                <option value={curr.code} key={curr.code}>
+                  {curr.code}: {curr.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -96,39 +116,53 @@ function App() {
               htmlFor="to"
               className="block mb-2 text-white mt-3 font-bold text-xl"
             >
-              Converted To :
+              To Currency:
             </label>
             <select
-              onChange={(e) => {
-                setcurrentTo(e.target.value.slice(0, 3));
-              }}
+              value={currentTo}
+              onChange={(e) => setCurrentTo(e.target.value)}
               id="to"
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 "
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
             >
-              {allCurrency.map((curr) => {
-                return (
-                  <option value={curr} key={curr} className={curr}>
-                    {curr}
-                  </option>
-                );
-              })}
+              {allCurrency.map((curr) => (
+                <option value={curr.code} key={curr.code}>
+                  {curr.code}: {curr.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <button
-            onClick={() => convertCurrency()}
+            onClick={convertCurrency}
             className="mt-6 bg-white text-slate-900 w-full p-2 rounded-lg font-bold text-lg cursor-pointer hover:bg-slate-900 hover:text-slate-200 transition-all"
             type="button"
           >
             Convert
           </button>
 
+          <button
+            onClick={swap}
+            className="mt-3 bg-yellow-300 text-black w-full p-2 rounded-lg font-bold text-lg cursor-pointer hover:bg-yellow-400 transition-all"
+            type="button"
+          >
+            🔁 Swap
+          </button>
+
           {result && (
-            <h1 className=" bg-blue-300 roudned w-full text-center  my-3 p-3">
-              <span className="font-bold">{result.amount}</span> {result.base} ={" "}
-              <span className="font-bold">{result.rates[currentTo]}</span>{" "}
-              {currentTo}
-            </h1>
+            <>
+              <h1 className="bg-blue-300 rounded w-full text-center my-3 p-3">
+                <span className="font-bold">{currentAmount}</span> {result.base}{" "}
+                = <span className="font-bold">{result.rates[currentTo]}</span>{" "}
+                {currentTo}
+              </h1>
+              <h1 className="bg-blue-300 rounded w-full text-center my-3 p-3">
+                <span className="font-bold">1 </span> {result.base} =
+                <span className="font-bold">
+                  {(result.rates[currentTo] / result.amount).toFixed(4)}
+                </span>
+                {currentTo}
+              </h1>
+            </>
           )}
         </form>
       </div>
